@@ -18,6 +18,7 @@ function V = ICARTTreader(ICTname)
 %               of the variable name.
 % 20140612 GMW  Added try-catch statement to use fscanf if textscan fails to read data.
 % 20150416 GMW  Modified to deal with case of empty ULOD and LLOD fields.
+% 20190805 GMW  Fixed minor bug in reading ULOD/LLOD flags
 
 %%%%%OPEN FILE%%%%%
 [fid,message] = fopen(ICTname);
@@ -63,14 +64,14 @@ miss = repmat(miss,nrow,1);
 llod=miss(end);
 i = strmatch('LLOD_FLAG',header); %lower detection limit
 if ~isempty(i)
-    lod = str2num(header{i}(12:end));
+    lod = str2num(header{i}(11:end));
     if ~isempty(lod), llod=lod; end
 end
     
 ulod=miss(end);
 i = strmatch('ULOD_FLAG',header); %upper detection limit
 if ~isempty(i)
-    lod = str2num(header{i}(12:end));
+    lod = str2num(header{i}(11:end));
     if ~isempty(lod), ulod=lod; end
 end
 
