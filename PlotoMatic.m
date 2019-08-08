@@ -1,16 +1,56 @@
 function varargout = PlotoMatic(varargin)
-%PLOTOMATIC M-file for plotomatic.fig
-% This GUI is designed to inspect flight time series.
+% PLOTOMATIC M-file for plotomatic.fig
+% PlotoMatic is a graphical user interface for visualizing airborne in situ observations.
+% Such data is 5-dimensional (x,y,z,t, and scalars), and there are many different ways to slice it.
+% This GUI will simultaneously make a time series, vertical profile, map, and scalar-scalar scatter plot.
+% Additional functionality is included to change data scaling and index discrete segments (legs).
+% Suggestions for improvement are always welcome.
+%
+% EXAMPLE USE
+% D = ICARTTmerge(someDirectoryWithData);
+% Xnames = {''Time_Start'',''Latitude'',''Longitude'',''Altitude''};
+% legTimes = [12345 67899];
+% PlotoMatic(D,Xnames,legTimes)
 %
 % INPUTS
-% D: a structure containing data vectors, e.g. from a merge file. All must be 1-D arrays of the same length.
+% D: a structure containing data vectors, e.g. from a merge file.
+%       All fields must be 1-D arrays of the same length.
 % Xnames: cell array of strings specifying names of variables within D for independent variables: 
-%         {time,lat,lon,alt}
-% legTimes: Optional 2-column matrix of start and stop times for individual legs. Default is [].
+%       {time,latitude,longitude,altitude}.
+% legTimes: OPTIONAL 2-column matrix of start and stop times for individual legs. Default is [].
 %
-% EXAMPLE: PlotoMatic(D,{'Start_UTC','Latitude','Longitude','Altitude'})
+% PLOT OPTIONS MENU
+% X1 and X2 dropdown menus: select primary and secondary variables.
+%   X1 is displayed in all plots. X2 is currently only used in the scatter and map plots.
+% LOG: transform the variable to a base-10 log scale.
+% LAG: specify how many data points X1 or X2 should be lagged forward (positive) or backward (negative) in time. 
+%   Use if variables are not properly aligned in time, as is often the case with preliminary data.
+% MATH: performs difference or ratio between X1 and X2. Be sure that variables are aligned before using this.
+% RESET AXES: resets all plot axes to their outer limits.
+%
+% LEG SELECTION MENU
+% Leg Table: enter start and stop times here to flag specific segments of data.
+%   Clicking the "Plot" box will plot the leg as a distinct color on all plots.
+%   Note, Plot will not work if Stop>Start.
+%
+% Dump: prints all leg times to the command window for cutting and pasting.
+%  qCan be used with plumeAverage.m or other functions.
+% Add Leg: uses the data cursors on the time series plot to add a new leg to the table.
+% Plot All: toggles between plotting all or none of the valid legs.
+%
+% COLOR BY MENU
+% Found above the map, this lets you determine how the data on the map are colored.
+%
+% PLOT NAVIGATION
+% Hot keys are coded in for quickly switching between plot tools.
+% CTRL+Z: zoom
+% CTRL+X: zoom out
+% CTRL+A: pan
+% CTRL+d: data cursors
 %
 % 20170929 GMW
+% 20190805 GMW Initiial public offering.
+% 20190807 GMW Added input checking and better readme.
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 0;
@@ -40,22 +80,27 @@ function PlotoMatic_OpeningFcn(hObject, eventdata, handles, varargin)
 % varargin   unrecognized PropertyName/PropertyValue pairs from the
 %            command line (see VARARGIN)
 
-% Choose default command line output for PlotoMatic
-handles.output = hObject;
+handles.output = hObject; % Choose default command line output for PlotoMatic
+guidata(hObject, handles); % Update handles structure
 
-% Update handles structure
-guidata(hObject, handles);
-
-% break out varargin
+% break out varargin and check inputs
+assert(length(varargin)>=2,'Not enough input arguments.')
+assert(length(varargin)<=3,'Too many input arguments.')
 D = varargin{1};
 Xnames = varargin{2};
+assert(isstruct(D),'First input must be a structure containing 1-D arrays of the same size.')
+assert(iscell(Xnames) && length(Xnames)==4,'Second input must be a 4-element cell array containing field names for time, latitude, longitude, and altitude, respectively.')
+assert(all(cellfun(@ischar,Xnames)),'All cells in input Xnames must be strings.')
+assert(all(isfield(D,Xnames)),'All variables in Xnames must be in input data structure.')
+
 if length(varargin)==3
     legTimes = varargin{3};
+    assert(size(legTimes,2)==2,'Input legTimes must be of size N x 2.')
 else
     legTimes = [];
 end
 
-% check data structure
+% filter data structure
 c1 = structfun(@isnumeric,D);
 c2 = structfun(@isvector,D);
 l = structfun(@length,D);
@@ -67,7 +112,7 @@ if any(~c)
 end
 Dnames = fieldnames(D);
 
-% get x variables
+% get independent variables
 time = D.(Xnames{1}); time_label = strrep(Xnames{1},'_',' ');
 lat = D.(Xnames{2});
 lon = D.(Xnames{3}); lon(lon>180) = lon(lon>180) - 360;
@@ -83,7 +128,7 @@ x2 = D.(x2n);
 
 set(handles.VarMath,'String',{'none','X1-X2','X1/X2'})
 
-% initialize leg selector
+% initialize leg table
 if ~isempty(legTimes)  
     nlegs = size(legTimes,1);
     legTable = get(handles.legTable,'Data');
@@ -122,14 +167,20 @@ x2 = x2(:);
 x1n = strrep(x1n,'_',' '); %for plot labels
 x2n = strrep(x2n,'_',' ');
 
-% lag x2 if desired
+% lag if desired
+lag = str2double(handles.x1lag.String);
+if lag
+    n = nan(abs(lag),1); %filler
+    if lag<0,     x1 = [x1(-lag+1:end); n]; %shift backward
+    elseif lag>0, x1 = [n; x1(1:end-lag)]; %shift forward
+    end
+end
+
 lag = str2double(handles.x2lag.String);
 if lag
     n = nan(abs(lag),1); %filler
-    if lag<0
-        x2 = [x2(-lag+1:end); n]; %shift backward
-    elseif lag>0
-        x2 = [n; x2(1:end-lag)]; %shift forward
+    if lag<0,     x2 = [x2(-lag+1:end); n]; %shift backward
+    elseif lag>0, x2 = [n; x2(1:end-lag)]; %shift forward
     end
 end
 
@@ -316,9 +367,6 @@ UpdatePlots(handles)
 
 % --- Executes on button press in DumpButton (DUMP TO CW).
 function DumpButton_Callback(hObject, eventdata, handles)
-% hObject    handle to DumpButton (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
 
 % dump indices to command window for easy cut 'n paste
 legTable = get(handles.legTable,'Data');
@@ -328,7 +376,6 @@ legTimes = cell2mat(legTimes(i,:))';
 outtie = sprintf('%1.2f, %1.2f;\n',legTimes);
 outtie = [sprintf('%s\n','legTimes=[') outtie '];'];
 disp(outtie)
-% assignin('base','NewLegTimesString',outtie);
 
 % --- Executes on button press in PlotAllLegs.
 function PlotAllLegs_Callback(hObject, eventdata, handles)
@@ -379,12 +426,27 @@ function var2log_Callback(hObject, eventdata, handles)
 UpdatePlots(handles)
 function VarMath_Callback(hObject, eventdata, handles)
 UpdatePlots(handles,0,1)
+function x1lag_Callback(hObject, eventdata, handles)
+UpdatePlots(handles)
 function x2lag_Callback(hObject, eventdata, handles)
 UpdatePlots(handles)
 function MapColorSelector_SelectionChangedFcn(hObject, eventdata, handles)
 UpdatePlots(handles)
 
-% function to get leg colors, generated from distinguishable_colors.m
+% ----MENUS------------------------------------------
+function ToolbarHotKeysMenu_Callback(hObject, eventdata, handles)
+function HotKey_ZoomIn_Callback(hObject, eventdata, handles)
+zoom on
+function HotKey_ZoomOut_Callback(hObject, eventdata, handles)
+zoom out
+function HotKey_Pan_Callback(hObject, eventdata, handles)
+pan on
+function HotKey_DataCursor_Callback(hObject, eventdata, handles)
+datacursormode on
+function READMEMenu_Callback(hObject, eventdata, handles)
+doc('PlotoMatic')
+
+% function to set leg colors, generated from distinguishable_colors.m
 function c = getLegColors(n)
 c = [
          0         0    1.0000
@@ -447,30 +509,30 @@ c = c(1:n,:);
 
 
 %%%%% UNUSED JUNK FOLLOWS %%%%%
-
 % --- Executes during object creation, after setting all properties.
 function Var2_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
-
 function Var1_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
-
 function VarMath_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
-
+function x1lag_CreateFcn(hObject, eventdata, handles)
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
 function x2lag_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
-
 % --- Outputs from this function are returned to the command line.
 function varargout = PlotoMatic_OutputFcn(hObject, eventdata, handles)
 varargout{1} = handles.output;
 
 
+% THAT'S ALL FOLKS
