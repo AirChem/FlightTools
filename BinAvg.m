@@ -18,7 +18,7 @@ function [yout,youtstd,n,xout] = BinAvg(xin,yin,x2avg,num_pts,num_std,meanmed,so
 %           NaNs as averages and std.
 % num_std: number of standard deviations for outlier filter. Points lying outside of 
 %           a window defined by (mean +/- std) in a bin will be excluded from the average.
-% meanmed: flag for averaging. 0=means, 1=medians.
+% meanmed: flag for averaging. 0=means, 1=medians, 2=max, 3 = min;
 % som:     flag for standard deviations. 0=normal std, 1=std of mean.
 %
 % OUTPUTS:
@@ -30,6 +30,7 @@ function [yout,youtstd,n,xout] = BinAvg(xin,yin,x2avg,num_pts,num_std,meanmed,so
 % 20120627 GMW
 % 20120803 GMW    Fixed issue with indexing for repeated bins (e.g. with diel averaging).
 % 20131002 GMW    Addeded cabability to input time windows for xavg.
+% 20200318 GMW    Added option to do min or max of bin (meanmed flag)
 
 %%%%%DEFAULT INPUTS%%%%%
 if nargin<4, num_pts=0; end
@@ -118,8 +119,15 @@ for i=1:ncol
     y2avg(i2map) = ynow;
 
     %%%%%CALCULATE STATISTICS%%%%%
-    if meanmed, yavg = nanmedian(y2avg,1);
-    else        yavg = nanmean(y2avg,1);
+    switch meanmed
+        case 0
+            yavg = nanmean(y2avg,1);
+        case 1
+            yavg = nanmedian(y2avg,1);
+        case 2
+            yavg = nanmax(y2avg,[],1);
+        case 3
+            yavg = nanmin(y2avg,[],1);
     end
     
     if som, ystd = stdom(y2avg);
@@ -133,9 +141,16 @@ for i=1:ncol
         out = y2avg>upperlimit | y2avg<lowerlimit;
         y2avg(out) = nan;
         
-        if meanmed, yavg = nanmedian(y2avg,1);
-        else        yavg = nanmean(y2avg,1);
-        end
+    switch meanmed
+        case 0
+            yavg = nanmean(y2avg,1);
+        case 1
+            yavg = nanmedian(y2avg,1);
+        case 2
+            yavg = nanmax(y2avg,[],1);
+        case 3
+            yavg = nanmin(y2avg,[],1);
+    end
 
         if som, ystd = stdom(y2avg,1);
         else    ystd = nanstd(y2avg,1);

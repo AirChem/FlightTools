@@ -1,10 +1,11 @@
-function D = ICARTTmerge(fldr,timeInfo,alignInfo)
-% function D = ICARTTmerge(fldr,timeInfo,alignInfo)
+function D = ICARTTmerge(files,timeInfo,alignInfo)
+% function D = ICARTTmerge(files,timeInfo,alignInfo)
 % tool to merge ICARTT files.
-% All files to be merged are in a single directory containing no other files.
 % 
 % INPUTS:
-% fldr: full path to directory containing files to merge
+% files: Can be either:
+%   1) full path to directory containing files to merge. In this case, All files to be merged are in a single directory containing no other files.
+%   2) cell array of file names
 % timeInfo: two or three-element cell array containing info for the master time vector.
 %   First cell is the data ID for the file containing the master time vector.
 %   Second cell is the name of the time variable (or start time if using a window merge).
@@ -17,21 +18,26 @@ function D = ICARTTmerge(fldr,timeInfo,alignInfo)
 % OUTPUT D is the merged dataset structure.
 %
 % EXAMPLE USE
-% fldr = cd;
+% files = cd;
 % timeInfo = {'FIREXAQ-MetNav','Time_Start'};
 % alignInfo = {'CO_LGR_ppb','CH2O_CAMS_pptv','CH2O_ISAF'};
 % D = ICARTTmerge(fldr,timeInfo,alignInfo);
 %
 % 20190803 GMW
 % 20190821 GMW  Added ability to do a window merge (e.g. on WAS data).
+% 20200311 GMW  Added option to specify file names instead of folder.
 
 if nargin<3, alignInfo = {}; end
     
-% get file names
-fileinfo = dir(fldr);
-L = length(fileinfo)-2; %hack off . and ..
-files = cell(L,1);
-[files{:}] = fileinfo(3:end).name;
+% get file names, if folder specificed
+if ~iscell(files)
+    fileinfo = dir(files);
+    L = length(fileinfo)-2; %hack off . and ..
+    files = cell(L,1);
+    [files{:}] = fileinfo(3:end).name;
+else
+    L = length(files);
+end
 
 % read em
 d = struct;
@@ -45,7 +51,7 @@ end
 % get time variable to average to
 timeDataID = strrep(timeInfo{1},'-','_');
 t1name = timeInfo{2};
-assert(isfield(d,timeDataID),'timeInfo dataID %s not found in folder %s.',timeDataID,fldr)
+assert(isfield(d,timeDataID),'timeInfo dataID %s not found.',timeDataID)
 assert(isfield(d.(timeDataID),t1name),'timeInfo variable name %s not found in dataID %s.',t1name,timeDataID)
 D = d.(timeDataID); %initialize output structure
 t1 = D.(t1name);

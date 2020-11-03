@@ -23,7 +23,7 @@ function V = ICARTTreader(ICTname)
 %%%%%OPEN FILE%%%%%
 [fid,message] = fopen(ICTname);
 if fid==-1
-    error(message)
+    error([message ': %s'],ICTname)
 end
 
 %%%%%GRAB HEADER%%%%%
