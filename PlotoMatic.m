@@ -31,8 +31,7 @@ function varargout = PlotoMatic(varargin)
 % LEG SELECTION MENU
 % Leg Table: enter start and stop times here to flag specific segments of data.
 %   Clicking the "Plot" box will plot the leg as a distinct color on all plots.
-%   Note, Plot will not work if Stop>Start.
-%
+%   Note, Plot will not work if Stop > Start.
 % Dump: prints all leg times to the command window for cutting and pasting.
 %  qCan be used with plumeAverage.m or other functions.
 % Add Leg: uses the data cursors on the time series plot to add a new leg to the table.

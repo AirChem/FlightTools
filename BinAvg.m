@@ -44,7 +44,7 @@ if isscalar(x2avg)
     xedge = (min(xin):inc:max(xin))'; %bin edges
     xout = xedge + inc/2; %bin centers
 elseif isvector(x2avg)
-    inc = nanmedian(diff(x2avg)); %use bin spacing to determine increment
+    inc = median(diff(x2avg),'omitnan'); %use bin spacing to determine increment
     xedge = x2avg - inc/2;
     xout = x2avg;
 else %assume start and stop windows given
@@ -52,7 +52,7 @@ else %assume start and stop windows given
     xedge = nan(2*nwin,1);
     xedge(1:2:2*nwin-1) = x2avg(:,1);%interleave start and stop values
     xedge(2:2:2*nwin) = x2avg(:,2);
-    xout = nanmean(x2avg,2); %use bin centers
+    xout = mean(x2avg,2,'omitnan'); %use bin centers
     inc = max(diff(xedge)); %prevents bins from being thrown away for wrong size
 end
 
@@ -121,17 +121,17 @@ for i=1:ncol
     %%%%%CALCULATE STATISTICS%%%%%
     switch meanmed
         case 0
-            yavg = nanmean(y2avg,1);
+            yavg = mean(y2avg,1,'omitnan');
         case 1
-            yavg = nanmedian(y2avg,1);
+            yavg = median(y2avg,1,'omitnan');
         case 2
-            yavg = nanmax(y2avg,[],1);
+            yavg = max(y2avg,[],1,'omitnan');
         case 3
-            yavg = nanmin(y2avg,[],1);
+            yavg = min(y2avg,[],1,'omitnan');
     end
     
     if som, ystd = stdom(y2avg);
-    else    ystd = nanstd(y2avg,1);
+    else    ystd = std(y2avg,1,'omitnan');
     end
 
     %%%%%FILTER OUTLIERS%%%%%
